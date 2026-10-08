@@ -8,11 +8,7 @@ import sqlite3
 import os
 import tempfile
 from datetime import datetime
-import qrcode
-from io import BytesIO
-import base64
 
-# ====== إعدادات Streamlit ======
 st.set_page_config(
     page_title="🏢 نظام الحضرمي ERP 2026",
     page_icon="⚜️",
@@ -20,62 +16,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ====== إدارة الملفات في السحابة ======
 TEMP_DIR = tempfile.gettempdir()
 DB_FILE = os.path.join(TEMP_DIR, "al_hadrami_sky_production.db")
 ATTACH_DIR = os.path.join(TEMP_DIR, "attachments")
 BACKUP_DIR = os.path.join(TEMP_DIR, "backups")
 
 for directory in [ATTACH_DIR, BACKUP_DIR]:
-    os.makedirs(directory, exist_ok=True)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-# ====== Cache للبيانات ======
 @st.cache_resource
 def get_db_connection():
-    """الاتصال بقاعدة البيانات"""
     return sqlite3.connect(DB_FILE, check_same_thread=False)
 
-@st.cache_data
-def load_privileges():
-    """تحميل البيانات المخزنة مؤقتاً"""
-    conn = get_db_connection()
-    return pd.read_sql_query("SELECT * FROM system_privileges", conn)
-
-def generate_zatca_qr(seller_name, vat_reg_num, timestamp, total_amt, vat_amt):
-    """توليد رمز QR لـ ZATCA"""
-    try:
-        qr_data = f"{seller_name}|{vat_reg_num}|{timestamp}|{total_amt}|{vat_amt}"
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(qr_data)
-        qr.make(fit=True)
-        return qr.make_image(fill_color="black", back_color="white")
-    except Exception:
-        return None
-
 def init_database():
-    """تهيئة قاعدة البيانات"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS erp_documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        doc_type TEXT,
-        status TEXT,
-        date TEXT,
-        doc_num TEXT,
-        account_no TEXT,
-        account_name TEXT,
-        debit REAL,
-        credit REAL,
-        cost_center TEXT,
-        client_name TEXT,
-        description TEXT,
-        financial_period TEXT,
-        branch_name TEXT,
-        currency_code TEXT DEFAULT 'SAR'
-    )
-    """)
+        doc_type TEXT, status TEXT, date TEXT, doc_num TEXT,
+        account_no TEXT, account_name TEXT, debit REAL, credit REAL,
+        cost_center TEXT, client_name TEXT, description TEXT,
+        financial_period TEXT, branch_name TEXT, currency_code TEXT DEFAULT 'SAR'
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS system_privileges (
@@ -83,8 +48,7 @@ def init_database():
         display_name TEXT,
         user_role TEXT,
         account_status TEXT
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS corporate_profile (
@@ -98,21 +62,15 @@ def init_database():
         bank_iban TEXT,
         notes TEXT,
         corporate_qr_enabled TEXT
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS inventory_master_ledger (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_code TEXT,
-        item_name TEXT,
-        quantity REAL,
-        unit_cost REAL,
-        total_value REAL,
-        warehouse_name TEXT,
+        item_code TEXT, item_name TEXT, quantity REAL,
+        unit_cost REAL, total_value REAL, warehouse_name TEXT,
         created_at TEXT
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS chart_of_accounts (
@@ -122,8 +80,7 @@ def init_database():
         account_type TEXT,
         financial_statement TEXT,
         depth_level INTEGER
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS system_audit_trail_logs (
@@ -132,15 +89,13 @@ def init_database():
         action_performed TEXT,
         document_referenced TEXT,
         timestamp_logged TEXT
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS locked_financial_periods (
         period_name TEXT PRIMARY KEY,
         is_locked TEXT
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS geo_analytic_cost_centers (
@@ -148,16 +103,14 @@ def init_database():
         branch_name TEXT,
         main_cost_center TEXT,
         sub_cost_center_name TEXT
-    )
-    """)
+    )""")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS client_credit_limits (
         client_name TEXT PRIMARY KEY,
         credit_limit REAL,
         current_balance REAL
-    )
-    """)
+    )""")
 
     conn.commit()
 
@@ -175,7 +128,7 @@ def init_database():
     cursor.execute("SELECT COUNT(*) FROM corporate_profile")
     if cursor.fetchone()[0] == 0:
         cursor.execute("""
-        INSERT INTO corporate_profile VALUES 
+        INSERT INTO corporate_profile VALUES
         (1, 'مجموعة الحضرمي التجارية القابضة', '310961234567693',
         'الطائف - المملكة العربية السعودية', '21944', '+966127320000',
         'info@hadrami.com', 'SA8040000012345678901234',
@@ -223,12 +176,9 @@ def init_database():
         )
 
     conn.commit()
-    conn.close()
 
-# تهيئة قاعدة البيانات
 init_database()
 
-# ====== CSS مخصص ======
 st.markdown("""
 <style>
     .main-title {
@@ -244,34 +194,15 @@ st.markdown("""
         font-size: 1.1rem;
         margin-bottom: 2rem;
     }
-    .metric-card {
-        background: linear-gradient(135deg, #5B1E31, #8B3A50);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-    }
-    .status-active {
-        color: #2ecc71;
-        font-weight: bold;
-    }
-    .status-inactive {
-        color: #e74c3c;
-        font-weight: bold;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# ====== الرأس ======
 st.markdown('<div class="main-title">⚜️ نظام الحضرمي ERP 2026 ⚜️</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">نظام إدارة موارد المؤسسات المتكامل - الطبعة السحابية</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">نظام إدارة موارد المؤسسات المتكامل</div>', unsafe_allow_html=True)
 st.markdown("---")
 
-# ====== القائمة الجانبية ======
 with st.sidebar:
-    st.title("🔐 القائمة الرئيسية")
-    st.markdown("---")
-
+    st.title("🔑 القائمة الرئيسية")
     menu_selection = st.radio(
         "اختر القسم:",
         [
@@ -280,13 +211,9 @@ with st.sidebar:
             "💰 الحسابات",
             "📦 المخزون",
             "👥 الموظفون",
-            "📋 الفترات المالية",
-            "🏭 مراكز التكلفة",
             "⚙️ الإعدادات"
         ]
     )
-
-# ====== المحتوى الرئيسي ======
 
 if menu_selection == "📊 لوحة المعلومات":
     st.subheader("📊 لوحة معلومات النظام")
@@ -311,7 +238,6 @@ if menu_selection == "📊 لوحة المعلومات":
         st.metric("👤 الموظفون", user_count, "+0")
 
     st.markdown("---")
-
     st.subheader("🏢 معلومات الشركة")
     comp = pd.read_sql_query("SELECT * FROM corporate_profile WHERE id=1", conn)
     if not comp.empty:
@@ -327,158 +253,61 @@ if menu_selection == "📊 لوحة المعلومات":
 
 elif menu_selection == "📄 المستندات":
     st.subheader("📄 إدارة المستندات")
-
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        if st.button("➕ مستند جديد", use_container_width=True):
-            st.session_state.show_doc_form = True
-
     conn = get_db_connection()
 
-    if st.session_state.get('show_doc_form', False):
-        with st.form("doc_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                doc_type = st.selectbox("نوع المستند", ["فاتورة", "إيصال", "شيك", "طلب شراء"])
-                doc_num = st.text_input("رقم المستند")
-            with col2:
-                status = st.selectbox("الحالة", ["جديد", "معلق", "مكتمل", "ملغى"])
-                date = st.date_input("التاريخ")
+    with st.form("doc_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            doc_type = st.selectbox("نوع المستند", ["فاتورة", "إيصال", "شيك", "طلب شراء"])
+            doc_num = st.text_input("رقم المستند")
+        with col2:
+            status = st.selectbox("الحالة", ["جديد", "معلق", "مكتمل", "ملغى"])
+            date = st.date_input("التاريخ")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                account_no = st.text_input("رقم الحساب")
-                debit = st.number_input("مدين", min_value=0.0)
-            with col2:
-                account_name = st.text_input("اسم الحساب")
-                credit = st.number_input("دائن", min_value=0.0)
+        description = st.text_area("الوصف")
 
-            description = st.text_area("الوصف")
+        if st.form_submit_button("💾 حفظ"):
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO erp_documents
+                (doc_type, doc_num, status, date, description)
+                VALUES (?, ?, ?, ?, ?)""",
+                (doc_type, doc_num, status, str(date), description)
+            )
+            conn.commit()
+            st.success("✅ تم حفظ المستند بنجاح!")
+            st.rerun()
 
-            if st.form_submit_button("💾 حفظ"):
-                cursor = conn.cursor()
-                cursor.execute(
-                    """INSERT INTO erp_documents 
-                    (doc_type, doc_num, status, date, account_no, account_name, debit, credit, description)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (doc_type, doc_num, status, str(date), account_no, account_name, debit, credit, description)
-                )
-                conn.commit()
-                st.success("✅ تم حفظ المستند بنجاح!")
-                st.session_state.show_doc_form = False
-                st.rerun()
-
-    docs_df = pd.read_sql_query(
-        "SELECT doc_num, doc_type, status, date, account_name, debit, credit FROM erp_documents ORDER BY date DESC",
-        conn
-    )
-
+    docs_df = pd.read_sql_query("SELECT doc_num, doc_type, status, date FROM erp_documents ORDER BY date DESC", conn)
     if not docs_df.empty:
         st.dataframe(docs_df, use_container_width=True, hide_index=True)
     else:
-        st.info("📭 لا توجد مستندات حالياً")
+        st.info("🎯 لا توجد مستندات حالياً")
 
 elif menu_selection == "💰 الحسابات":
     st.subheader("💰 دليل الحسابات")
-
     conn = get_db_connection()
-    coa_df = pd.read_sql_query(
-        "SELECT account_no, account_name, account_type, financial_statement FROM chart_of_accounts ORDER BY account_no",
-        conn
-    )
-
-    if not coa_df.empty:
-        st.dataframe(coa_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("📭 لا توجد حسابات")
+    coa_df = pd.read_sql_query("SELECT account_no, account_name, account_type, financial_statement FROM chart_of_accounts ORDER BY account_no", conn)
+    st.dataframe(coa_df, use_container_width=True, hide_index=True)
 
 elif menu_selection == "📦 المخزون":
     st.subheader("📦 إدارة المخزون")
-
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        if st.button("➕ عنصر جديد", use_container_width=True):
-            st.session_state.show_inv_form = True
-
     conn = get_db_connection()
-
-    if st.session_state.get('show_inv_form', False):
-        with st.form("inv_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                item_code = st.text_input("كود العنصر")
-                item_name = st.text_input("اسم العنصر")
-            with col2:
-                quantity = st.number_input("الكمية", min_value=0.0)
-                unit_cost = st.number_input("سعر الوحدة", min_value=0.0)
-
-            warehouse = st.text_input("المستودع")
-
-            if st.form_submit_button("💾 حفظ"):
-                cursor = conn.cursor()
-                total_value = quantity * unit_cost
-                cursor.execute(
-                    """INSERT INTO inventory_master_ledger 
-                    (item_code, item_name, quantity, unit_cost, total_value, warehouse_name, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (item_code, item_name, quantity, unit_cost, total_value, warehouse, str(datetime.now()))
-                )
-                conn.commit()
-                st.success("✅ تم إضافة العنصر بنجاح!")
-                st.session_state.show_inv_form = False
-                st.rerun()
-
-    inv_df = pd.read_sql_query(
-        "SELECT item_code, item_name, quantity, unit_cost, total_value, warehouse_name FROM inventory_master_ledger",
-        conn
-    )
-
+    inv_df = pd.read_sql_query("SELECT item_code, item_name, quantity, unit_cost, total_value, warehouse_name FROM inventory_master_ledger", conn)
     if not inv_df.empty:
         st.dataframe(inv_df, use_container_width=True, hide_index=True)
     else:
-        st.info("📭 المخزن فارغ")
+        st.info("🎯 المخزن فارغ")
 
 elif menu_selection == "👥 الموظفون":
     st.subheader("👥 إدارة الموظفين")
-
     conn = get_db_connection()
-    priv_df = pd.read_sql_query(
-        "SELECT username, display_name, user_role, account_status FROM system_privileges",
-        conn
-    )
-
+    priv_df = pd.read_sql_query("SELECT username, display_name, user_role, account_status FROM system_privileges", conn)
     st.dataframe(priv_df, use_container_width=True, hide_index=True)
-
-elif menu_selection == "📋 الفترات المالية":
-    st.subheader("📋 الفترات المالية")
-
-    conn = get_db_connection()
-    periods_df = pd.read_sql_query(
-        "SELECT period_name, is_locked FROM locked_financial_periods",
-        conn
-    )
-
-    st.dataframe(periods_df, use_container_width=True, hide_index=True)
-
-elif menu_selection == "🏭 مراكز التكلفة":
-    st.subheader("🏭 مراكز التكلفة الجغرافية")
-
-    conn = get_db_connection()
-    geo_df = pd.read_sql_query(
-        "SELECT branch_name, main_cost_center, sub_cost_center_name FROM geo_analytic_cost_centers",
-        conn
-    )
-
-    if not geo_df.empty:
-        st.dataframe(geo_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("📭 لا توجد مراكز تكلفة")
 
 elif menu_selection == "⚙️ الإعدادات":
     st.subheader("⚙️ إعدادات النظام")
-
     tab1, tab2, tab3 = st.tabs(["🏢 بيانات الشركة", "📊 الإحصائيات", "🔧 الإجراءات"])
-
     conn = get_db_connection()
 
     with tab1:
@@ -507,7 +336,7 @@ elif menu_selection == "⚙️ الإعدادات":
 
         if st.button("💾 تصدير البيانات (CSV)"):
             docs_df = pd.read_sql_query("SELECT * FROM erp_documents", conn)
-            csv = docs_df.to_csv(index=False)
+            csv = docs_df.to_csv(index=False, encoding='utf-8-sig')
             st.download_button(
                 label="📥 تحميل CSV",
                 data=csv,
@@ -515,7 +344,6 @@ elif menu_selection == "⚙️ الإعدادات":
                 mime="text/csv"
             )
 
-# ====== الفوتر ======
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #999; font-size: 0.85rem; margin-top: 2rem;">
