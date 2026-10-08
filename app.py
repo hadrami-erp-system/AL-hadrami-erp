@@ -1,6 +1,5 @@
 # ====================================================================
 # ⚜️ نظام الحضرمي المتكامل لإدارة موارد المؤسسات - طبعة الإقلاع النهائي 2026 ⚜️
-# 🛑 كود الصهر الكلي والمطهر 100% من أخطاء المسافات والفراغات البرمجية الجراحية
 # ====================================================================
 
 import streamlit as st
@@ -42,6 +41,18 @@ def load_privileges():
     """تحميل البيانات المخزنة مؤقتاً"""
     conn = get_db_connection()
     return pd.read_sql_query("SELECT * FROM system_privileges", conn)
+
+def generate_zatca_qr(seller_name, vat_reg_num, timestamp, total_amt, vat_amt):
+    """توليد رمز QR لـ ZATCA"""
+    try:
+        qr_data = f"{seller_name}|{vat_reg_num}|{timestamp}|{total_amt}|{vat_amt}"
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        return img
+    except Exception as e:
+        return None
 
 def init_database():
     """تهيئة قاعدة البيانات"""
